@@ -1,0 +1,49 @@
+# ------------------------------------
+# 1. Compiled Files and Executables
+# ------------------------------------
+
+# Object files (intermediate compilation files)
+*.o
+*.obj
+
+# Standard executable output files (for Linux/macOS)
+a.out
+
+# Executable files for the Trading Card DB (add your specific output name)
+tcdb
+*.exe
+
+# ------------------------------------
+# 2. Project/Build Artifacts
+# ------------------------------------
+
+# If you are using CMake (common C++ build tool)
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Temporary build directories
+build/
+bin/
+
+# ------------------------------------
+# 3. Development Environment Files
+# ------------------------------------
+
+# Database files - IMPORTANT: We ignore the actual database file
+# You only want to track the code that creates the database, not the data itself.
+*.db
+cards.db
+
+# Visual Studio Code settings and files
+.vscode/
+
+# Visual Studio project files (if using VS on Windows)
+*.sdf
+*.suo
+*.user
+*.ncb
+
+# macOS specific files
+.DS_Store
