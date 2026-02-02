@@ -10,6 +10,7 @@
 #include "sqlite3.h" // The SQLite library header
 #include "Cards.h"
 #include "Sales.h"
+#include "conio.h"
 using namespace std;
 
 // Forward Declarations for all functions
@@ -28,29 +29,22 @@ void displaySoldCardDetails(const soldCard& sale);
 void deleteSale(vector<soldCard>& sales, sqlite3* db);
 void importFromCSV(sqlite3* db, const string& filename);
 
-
-
-
-// ===================================================================
-// MAIN FUNCTION - The entry point of the program
-// ===================================================================
 int main() {
-    sqlite3* db; // This object represents the database connection.
-    int rc = sqlite3_open("inventory.db", &db); // Open or create the database file.
+    sqlite3* db;
+    int rc = sqlite3_open("inventory.db", &db);
 
     if (rc) {
         cerr << "Error opening database: " << sqlite3_errmsg(db) << endl;
         return 1;
     }
 
-    initializeDatabase(db); // Create the tables if they don't exist.
+    initializeDatabase(db);
 
     vector<CardCollection> inventory;
     vector<soldCard> salesLog;
 
     int choice = 0;
     while (true) {
-        // Always load fresh data from the DB before showing the dashboard and menu.
         loadInventory(inventory, db);
         loadSalesLog(salesLog, db);
 
@@ -71,7 +65,6 @@ int main() {
             cout << "Invalid input, please enter a number.\n";
             continue;
         }
-
         switch (choice) {
         case 1:
             addCard(db);
@@ -93,7 +86,7 @@ int main() {
                 cin.clear();
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
                 cout << "Invalid choice. Returning to main menu.\n";
-                break; // Break from the case 4, which is correct
+                break;
             }
 
             if (analysisChoice == 1) {
@@ -108,7 +101,6 @@ int main() {
 
                 int salesLogChoice;
                 cin >> salesLogChoice;
-
                 switch (salesLogChoice) {
                 case 1:
                     printSalesLog(db);
@@ -131,7 +123,7 @@ int main() {
                 break;
         case 0:
             cout << "Exiting Program\n";
-            sqlite3_close(db); // Close the database connection before exiting.
+            sqlite3_close(db);
             return 0;
         default:
             cout << "That was not an option presented, please try again\n";
@@ -140,9 +132,6 @@ int main() {
     }
 }
 
-// ===================================================================
-// UTILITY & HELPER FUNCTIONS
-// ===================================================================
 string trim(const string& str) {
     size_t first = str.find_first_not_of(" \t\n\r");
     if (first == string::npos) return "";
@@ -157,6 +146,7 @@ void displayCardDetails(const CardCollection& card) {
     cout << "Purchase Price: $" << fixed << setprecision(2) << card.purchasePrice << "\n";
     cout << "Ebay Comp Value: $" << fixed << setprecision(2) << card.ebayCompValue << "\n";
     cout << "Quantity: " << card.quantity << "\n";
+    cout << "Reference#: " << card.reference << "\n";
     cout << "-----------------------------\n";
 }
 
@@ -168,11 +158,6 @@ void displaySoldCardDetails(const soldCard& sales) {
             << " | Profit Made: $" << sales.profitMade << "\n";
         cout << "--------------------------------------\n";
     }
-
-
-// ===================================================================
-// DATABASE FUNCTIONS
-// ===================================================================
 
 void initializeDatabase(sqlite3* db) {
     char* zErrMsg = 0;
@@ -186,6 +171,7 @@ void initializeDatabase(sqlite3* db) {
         "condition TEXT,"
         "purchasePrice REAL NOT NULL,"
         "ebayCompValue REAL NOT NULL,"
+        "reference TEXT."
         "quantity INTEGER NOT NULL);";
 
     const char* sqlSales =
@@ -196,9 +182,11 @@ void initializeDatabase(sqlite3* db) {
         "setName TEXT NOT NULL,"
         "cardNumber TEXT,"
         "condition TEXT,"
+        "reference TEXT"
         "purchasePrice REAL NOT NULL,"
         "finalSoldPrice REAL NOT NULL,"
         "profitMade REAL NOT NULL,"
+        
         "quantitySold INTEGER NOT NULL);";
 
     sqlite3_exec(db, sqlInventory, 0, 0, &zErrMsg);
@@ -212,7 +200,7 @@ void initializeDatabase(sqlite3* db) {
 
 void loadInventory(vector<CardCollection>& inventory, sqlite3* db) {
     inventory.clear();
-    const char* sql = "SELECT id, type, name, setName, cardNumber, condition, purchasePrice, ebayCompValue, quantity FROM inventory;";
+    const char* sql = "SELECT id, type, name, setName, cardNumber, condition, reference, purchasePrice, ebayCompValue, quantity FROM inventory;";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
@@ -224,9 +212,10 @@ void loadInventory(vector<CardCollection>& inventory, sqlite3* db) {
             newCard.setName = (const char*)sqlite3_column_text(stmt, 3);
             newCard.cardNumber = (const char*)sqlite3_column_text(stmt, 4);
             newCard.condition = (const char*)sqlite3_column_text(stmt, 5);
-            newCard.purchasePrice = sqlite3_column_double(stmt, 6);
-            newCard.ebayCompValue = sqlite3_column_double(stmt, 7);
-            newCard.quantity = sqlite3_column_int(stmt, 8);
+            newCard.reference = (const char*)sqlite3_column_text(stmt, 6);
+            newCard.purchasePrice = sqlite3_column_double(stmt, 7);
+            newCard.ebayCompValue = sqlite3_column_double(stmt, 8);
+            newCard.quantity = sqlite3_column_int(stmt, 9);
             inventory.push_back(newCard);
         }
     }
@@ -235,7 +224,7 @@ void loadInventory(vector<CardCollection>& inventory, sqlite3* db) {
 
 void loadSalesLog(vector<soldCard>& sales, sqlite3* db) {
     sales.clear();
-    const char* sql = "SELECT id, type, name, setName, cardNumber, condition, purchasePrice, finalSoldPrice, profitMade, quantitySold FROM sales;";
+    const char* sql = "SELECT id, type, name, setName, cardNumber, condition, reference, purchasePrice, finalSoldPrice, profitMade, quantitySold FROM sales;";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -246,6 +235,7 @@ void loadSalesLog(vector<soldCard>& sales, sqlite3* db) {
             newSale.setName = (const char*)sqlite3_column_text(stmt, 3);
             newSale.cardNumber = (const char*)sqlite3_column_text(stmt, 4);
             newSale.condition = (const char*)sqlite3_column_text(stmt, 5);
+            newSale.reference = (const char*)sqlite3_column_text(stmt, 5);
             newSale.purchasePrice = sqlite3_column_double(stmt, 6);
             newSale.finalSoldPrice = sqlite3_column_double(stmt, 7);
             newSale.profitMade = sqlite3_column_double(stmt, 8);
@@ -295,14 +285,16 @@ void addCard(sqlite3* db) {
     cout << "Name: "; getline(cin, newCard.name); newCard.name = trim(newCard.name);
     cout << "Set: "; getline(cin, newCard.setName); newCard.setName = trim(newCard.setName);
     cout << "Condition: "; getline(cin, newCard.condition); newCard.condition = trim(newCard.condition);
+    cout << "Reference #: "; getline(cin, newCard.reference); newCard.reference = trim(newCard.reference);
 
     sqlite3_stmt* stmt;
-    const char* sql_check = "SELECT id, quantity FROM inventory WHERE type = ? AND name = ? AND setName = ? AND condition = ?;";
+    const char* sql_check = "SELECT id, quantity FROM inventory WHERE type = ? AND name = ? AND setName = ? AND condition = ? AND reference = ?;";
     sqlite3_prepare_v2(db, sql_check, -1, &stmt, NULL);
     sqlite3_bind_text(stmt, 1, newCard.type.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, newCard.name.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, newCard.setName.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 4, newCard.condition.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 5, newCard.reference.c_str(), -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         int existing_id = sqlite3_column_int(stmt, 0);
@@ -340,16 +332,17 @@ void addCard(sqlite3* db) {
         while (true) { cout << "Price Paid: $"; cin >> newCard.purchasePrice; if (!cin.fail()) break; cin.clear(); cin.ignore(numeric_limits<streamsize>::max(), '\n'); cout << "Invalid input.\n"; }
         while (true) { cout << "Ebay Comp Value: $"; cin >> newCard.ebayCompValue; if (!cin.fail()) break; cin.clear(); cin.ignore(numeric_limits<streamsize>::max(), '\n'); cout << "Invalid input.\n"; }
 
-        const char* sql_insert = "INSERT INTO inventory (type, name, setName, cardNumber, condition, purchasePrice, ebayCompValue, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+        const char* sql_insert = "INSERT INTO inventory (type, name, setName, cardNumber, condition, reference, purchasePrice, ebayCompValue, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
         sqlite3_prepare_v2(db, sql_insert, -1, &stmt, NULL);
         sqlite3_bind_text(stmt, 1, newCard.type.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, newCard.name.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 3, newCard.setName.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 4, newCard.cardNumber.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 5, newCard.condition.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_double(stmt, 6, newCard.purchasePrice);
-        sqlite3_bind_double(stmt, 7, newCard.ebayCompValue);
-        sqlite3_bind_int(stmt, 8, newCard.quantity);
+        sqlite3_bind_text(stmt, 6, newCard.reference.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_double(stmt, 7, newCard.purchasePrice);
+        sqlite3_bind_double(stmt, 8, newCard.ebayCompValue);
+        sqlite3_bind_int(stmt, 9, newCard.quantity);
 
         if (sqlite3_step(stmt) != SQLITE_DONE) {
             cerr << "Error inserting card: " << sqlite3_errmsg(db) << endl;
@@ -393,17 +386,17 @@ void editCard(vector<CardCollection>& inventory, sqlite3* db) {
     cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
     sqlite3_stmt* stmt = nullptr;
-
     switch (editChoice) {
     case 1: { string val; cout << "New Sport or TCG: "; getline(cin, val); const char* sql = "UPDATE inventory SET type = ? WHERE id = ?"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_text(stmt, 1, val.c_str(), -1, SQLITE_TRANSIENT); sqlite3_bind_int(stmt, 2, card_db_id); break;}
     case 2: { string val; cout << "New Name: "; getline(cin, val); const char* sql = "UPDATE inventory SET name = ? WHERE id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_text(stmt, 1, val.c_str(), -1, SQLITE_TRANSIENT); sqlite3_bind_int(stmt, 2, card_db_id); break; }
     case 3: { string val; cout << "New Set: "; getline(cin, val); const char* sql = "UPDATE inventory SET setName = ? WHERE id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_text(stmt, 1, val.c_str(), -1, SQLITE_TRANSIENT); sqlite3_bind_int(stmt, 2, card_db_id); break; }
     case 4: { string val; cout << "New Card Number: "; getline(cin, val); const char* sql = "UPDATE inventory SET cardNumber = ? WHERE id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_text(stmt, 1, val.c_str(), -1, SQLITE_TRANSIENT); sqlite3_bind_int(stmt, 2, card_db_id); break; }
     case 5: { string val; cout << "New Condition: "; getline(cin, val); const char* sql = "UPDATE inventory SET condition = ? WHERE id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_text(stmt, 1, val.c_str(), -1, SQLITE_TRANSIENT); sqlite3_bind_int(stmt, 2, card_db_id); break; }
-    case 6: { double val; cout << "New Purchase Price: $"; cin >> val; const char* sql = "UPDATE inventory SET purchasePrice = ? WHERE id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_double(stmt, 1, val); sqlite3_bind_int(stmt, 2, card_db_id); break; }
-    case 7: { double val; cout << "New Ebay Comp Value: $"; cin >> val; const char* sql = "UPDATE inventory SET ebayCompValue = ? WHERE id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_double(stmt, 1, val); sqlite3_bind_int(stmt, 2, card_db_id); break; }
-    case 8: { int val; cout << "New Quantity: "; cin >> val; const char* sql = "UPDATE inventory SET quantity = ? WHERE id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_int(stmt, 1, val); sqlite3_bind_int(stmt, 2, card_db_id); break; }
-    case 9: {
+    case 6: { string val; cout << "New Reference: "; getline(cin, val); const char* sql = "UPDATE inventory SET reference = ? where id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_text(stmt, 1, val.c_str(), -1, SQLITE_TRANSIENT); sqlite3_bind_int(stmt, 2, card_db_id); break; }
+    case 7: { double val; cout << "New Purchase Price: $"; cin >> val; const char* sql = "UPDATE inventory SET purchasePrice = ? WHERE id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_double(stmt, 1, val); sqlite3_bind_int(stmt, 2, card_db_id); break; }
+    case 8: { double val; cout << "New Ebay Comp Value: $"; cin >> val; const char* sql = "UPDATE inventory SET ebayCompValue = ? WHERE id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_double(stmt, 1, val); sqlite3_bind_int(stmt, 2, card_db_id); break; }
+    case 9: { int val; cout << "New Quantity: "; cin >> val; const char* sql = "UPDATE inventory SET quantity = ? WHERE id = ?;"; sqlite3_prepare_v2(db, sql, -1, &stmt, NULL); sqlite3_bind_int(stmt, 1, val); sqlite3_bind_int(stmt, 2, card_db_id); break; }
+    case 0: {
         char confirm = 'n';
         cout << "Are you sure you want to delete '" << cardToEdit.name << "'? (y/n): ";
         cin >> confirm;
@@ -429,6 +422,7 @@ void editCard(vector<CardCollection>& inventory, sqlite3* db) {
         newSoldCard.type = cardToEdit.type;
         newSoldCard.name = cardToEdit.name; newSoldCard.setName = cardToEdit.setName; newSoldCard.cardNumber = cardToEdit.cardNumber;
         newSoldCard.condition = cardToEdit.condition; newSoldCard.purchasePrice = cardToEdit.purchasePrice;
+        newSoldCard.reference = cardToEdit.reference;
         newSoldCard.quantitySold = quantityToSell; newSoldCard.finalSoldPrice = salePricePerCard * quantityToSell;
         newSoldCard.profitMade = (salePricePerCard - newSoldCard.purchasePrice) * quantityToSell;
 
@@ -439,10 +433,11 @@ void editCard(vector<CardCollection>& inventory, sqlite3* db) {
         sqlite3_bind_text(stmt, 3, newSoldCard.setName.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 4, newSoldCard.cardNumber.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 5, newSoldCard.condition.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_double(stmt, 6, newSoldCard.purchasePrice);
-        sqlite3_bind_double(stmt, 7, newSoldCard.finalSoldPrice);
-        sqlite3_bind_double(stmt, 8, newSoldCard.profitMade);
-        sqlite3_bind_int(stmt, 9, newSoldCard.quantitySold);
+        sqlite3_bind_text(stmt, 6, newSoldCard.reference.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_double(stmt, 7, newSoldCard.purchasePrice);
+        sqlite3_bind_double(stmt, 8, newSoldCard.finalSoldPrice);
+        sqlite3_bind_double(stmt, 9, newSoldCard.profitMade);
+        sqlite3_bind_int(stmt, 10, newSoldCard.quantitySold);
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
 
@@ -467,7 +462,7 @@ void editCard(vector<CardCollection>& inventory, sqlite3* db) {
         cout << "Sale recorded successfully.\n";
         return;
     }
-    case 0: cout << "Edit Cancelled.\n"; return;
+    case 11: cout << "Edit Cancelled.\n"; return;
     default: cout << "Invalid choice.\n"; return;
     }
 
@@ -484,14 +479,13 @@ void editCard(vector<CardCollection>& inventory, sqlite3* db) {
 
 void printInventory(sqlite3* db) {
     cout << "\n- - - Your Card Inventory - - - \n";
-    cout << "1. Search by Name\n2. Alphabetically (A-Z)\n3. By Highest Value\n4. By Highest Potential Profit\n5. Search by Set\n6. By order of Entry (Newest First)\n6.Sport or TCG\n0. Cancel\n";
+    cout << "1. Search by Name\n2. Alphabetically (A-Z)\n3. By Highest Value\n4. By Highest Potential Profit\n5. Search by Set\n6. By order of Entry (Newest First)\n6.Sport or TCG\n7. Reference #\n0. Cancel\n";
     int sortChoice;
     cin >> sortChoice;
     cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
-    string sql = "SELECT id, type, name, setName, cardNumber, condition, purchasePrice, ebayCompValue, quantity FROM inventory ";
+    string sql = "SELECT id, type, name, setName, cardNumber, condition, reference, purchasePrice, ebayCompValue, quantity FROM inventory ";
     string search_term;
-
     switch (sortChoice) {
     case 1:
         cout << "Enter Card to search: "; getline(cin, search_term);
@@ -506,6 +500,10 @@ void printInventory(sqlite3* db) {
         break;
     case 6: sql += "ORDER BY id DESC;"; break;
     case 7: sql += "ORDER BY type; "; break;
+    case 8:
+        cout << "Enter Reference Number: "; getline(cin, search_term);
+        sql += "WHERE reference LIKE ? ORDER BY reference;";
+            break;
     case 0: cout << "Cancelled.\n"; return;
     default: cout << "Invalid choice.\n"; return;
     }
@@ -528,9 +526,10 @@ void printInventory(sqlite3* db) {
         card.setName = (const char*)sqlite3_column_text(stmt, 3);
         card.cardNumber = (const char*)sqlite3_column_text(stmt, 4);
         card.condition = (const char*)sqlite3_column_text(stmt, 5);
-        card.purchasePrice = sqlite3_column_double(stmt, 6);
-        card.ebayCompValue = sqlite3_column_double(stmt, 7);
-        card.quantity = sqlite3_column_int(stmt, 8);
+        card.reference = (const char*)sqlite3_column_text(stmt, 6);
+        card.purchasePrice = sqlite3_column_double(stmt, 7);
+        card.ebayCompValue = sqlite3_column_double(stmt, 8);
+        card.quantity = sqlite3_column_int(stmt, 9);
         displayCardDetails(card);
         count++;
     }
@@ -570,6 +569,7 @@ void printSalesLog(sqlite3* db) {
     cout << "2. Alphabetically (A-Z)\n";
     cout << "3. By Sale Order (Newest First)\n";
     cout << "4. Search by Name\n";
+    cout << "5 Search by reference #\n";
     cout << "0. Go Back\n";
     cout << "Enter your choice: ";
 
@@ -588,9 +588,8 @@ void printSalesLog(sqlite3* db) {
         return;
     }
 
-    string sql = "SELECT id, type, name, setName, cardNumber, condition, purchasePrice, finalSoldPrice, profitMade, quantitySold FROM sales ";
+    string sql = "SELECT id, type, name, setName, cardNumber, condition, reference, purchasePrice, finalSoldPrice, profitMade, quantitySold FROM sales ";
     string search_term;
-
     switch (sortChoice) {
     case 1:
         sql += "ORDER BY profitMade DESC;";
@@ -607,6 +606,11 @@ void printSalesLog(sqlite3* db) {
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
         getline(cin, search_term);
         sql += "WHERE name LIKE ? ORDER BY name;";
+        break;
+    }
+    case 5: {
+        cout << "Enter Reference Number: "; getline(cin, search_term);
+        sql += "WHERE reference LIKE ? ORDER BY reference;";
         break;
     }
     default:
@@ -633,10 +637,11 @@ void printSalesLog(sqlite3* db) {
         sale.setName = (const char*)sqlite3_column_text(stmt, 3);
         sale.cardNumber = (const char*)sqlite3_column_text(stmt, 4);
         sale.condition = (const char*)sqlite3_column_text(stmt, 5);
-        sale.purchasePrice = sqlite3_column_double(stmt, 6);
-        sale.finalSoldPrice = sqlite3_column_double(stmt, 7);
-        sale.profitMade = sqlite3_column_double(stmt, 8);
-        sale.quantitySold = sqlite3_column_int(stmt, 9);
+        sale.reference = (const char*)sqlite3_column_text(stmt, 5);
+        sale.purchasePrice = sqlite3_column_double(stmt, 7);
+        sale.finalSoldPrice = sqlite3_column_double(stmt, 8);
+        sale.profitMade = sqlite3_column_double(stmt, 9);
+        sale.quantitySold = sqlite3_column_int(stmt, 10);
 
         displaySoldCardDetails(sale); // Call the display function
         count++;
@@ -736,7 +741,7 @@ void deleteSale(vector<soldCard>& sales, sqlite3* db) {
 
 void importFromCSV(sqlite3* db, const string& filename) {
     cout << "\n--- Importing from " << filename << " ---\n";
-    ifstream inputFile(filename); // Open the specified CSV file
+    ifstream inputFile(filename);
 
     if (!inputFile.is_open()) {
         cerr << "Error: Could not open file " << filename << endl;
@@ -747,16 +752,13 @@ void importFromCSV(sqlite3* db, const string& filename) {
     int successCount = 0;
     int failCount = 0;
 
-    // Skip the header row
     getline(inputFile, line);
 
-    // Read the file line by line
     while (getline(inputFile, line)) {
         stringstream ss(line);
         string field;
         vector<string> fields;
 
-        // Split the line by commas
         while (getline(ss, field, ',')) {
             fields.push_back(field);
         }
@@ -764,30 +766,29 @@ void importFromCSV(sqlite3* db, const string& filename) {
         if (fields.size() == 8) {
             CardCollection newCard;
             try {
-                // Assign and convert data from the CSV fields
                 newCard.type = trim(fields[0]);
                 newCard.name = trim(fields[1]);
                 newCard.setName = trim(fields[2]);
                 newCard.cardNumber = trim(fields[3]);
                 newCard.condition = trim(fields[4]);
-                newCard.purchasePrice = stod(fields[5]); // stod = string to double
-                newCard.ebayCompValue = stod(fields[6]);
-                newCard.quantity = stoi(fields[7]);      // stoi = string to integer
+                newCard.reference = trim(fields[5]);
+                newCard.purchasePrice = stod(fields[6]);
+                newCard.ebayCompValue = stod(fields[7]);
+                newCard.quantity = stoi(fields[8]);
 
-                // Prepare the SQL INSERT statement
-                const char* sql_insert = "INSERT INTO inventory (type, name, setName, cardNumber, condition, purchasePrice, ebayCompValue, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+                const char* sql_insert = "INSERT INTO inventory (type, name, setName, cardNumber, condition, reference, purchasePrice, ebayCompValue, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
                 sqlite3_stmt* stmt;
                 sqlite3_prepare_v2(db, sql_insert, -1, &stmt, NULL);
 
-                // Bind the values to the statement
                 sqlite3_bind_text(stmt, 1, newCard.type.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(stmt, 2, newCard.name.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(stmt, 3, newCard.setName.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(stmt, 4, newCard.cardNumber.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(stmt, 5, newCard.condition.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_double(stmt, 6, newCard.purchasePrice);
-                sqlite3_bind_double(stmt, 7, newCard.ebayCompValue);
-                sqlite3_bind_int(stmt, 8, newCard.quantity);
+                sqlite3_bind_text(stmt, 6, newCard.reference.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_double(stmt, 7, newCard.purchasePrice);
+                sqlite3_bind_double(stmt, 8, newCard.ebayCompValue);
+                sqlite3_bind_int(stmt, 9, newCard.quantity);
 
                 if (sqlite3_step(stmt) == SQLITE_DONE) {
                     successCount++;
@@ -799,7 +800,6 @@ void importFromCSV(sqlite3* db, const string& filename) {
 
             }
             catch (const std::invalid_argument& e) {
-                // This will catch errors if stod() or stoi() fail (e.g., bad number format)
                 failCount++;
             }
         }
