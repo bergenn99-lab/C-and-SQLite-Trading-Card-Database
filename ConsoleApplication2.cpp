@@ -7,7 +7,7 @@
 #include <cctype>
 #include <fstream>
 #include <sstream>
-#include "sqlite3.h" // The SQLite library header
+#include "sqlite3.h"
 #include "Cards.h"
 #include "Sales.h"
 #include "conio.h"
@@ -811,3 +811,4 @@ void importFromCSV(sqlite3* db, const string& filename) {
     inputFile.close();
     cout << "Import complete.\nSuccessfully imported " << successCount << " cards.\nFailed to import " << failCount << " rows.\n";
 }
+
