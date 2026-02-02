@@ -11,9 +11,11 @@ struct CardCollection {
     int year;
     std::string cardNumber;
     std::string condition;
+    std::string reference;
     double purchasePrice;
     double ebayCompValue;
     int quantity;
 };
+
 
 #endif // CARDS_H
