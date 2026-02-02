@@ -4,7 +4,7 @@
 #include <string>
 
 struct CardCollection {
-    int id; // <-- ADD THIS LINE
+    int id;
     std::string type;
     std::string name;
     std::string setName;
@@ -19,3 +19,4 @@ struct CardCollection {
 
 
 #endif // CARDS_H
+
